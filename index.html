@@ -1,1 +1,361 @@
-<h1>Hello This is just testing </h1>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OMO</title>
+
+<style>
+body{
+    margin:0;
+    background:#111;
+    color:white;
+    font-family:Arial,sans-serif;
+}
+
+#topbar{
+    background:#202020;
+    padding:10px;
+    display:flex;
+    gap:20px;
+    align-items:center;
+}
+
+canvas{
+    display:block;
+    margin:auto;
+    background:linear-gradient(#5ee7ff,#49b84c);
+    border:3px solid black;
+}
+
+#shop{
+    position:absolute;
+    right:10px;
+    top:60px;
+    background:#222;
+    padding:10px;
+    border-radius:10px;
+    width:180px;
+}
+
+button{
+    width:100%;
+    margin-top:5px;
+    padding:8px;
+    cursor:pointer;
+}
+
+h3{
+    margin-top:0;
+}
+</style>
+</head>
+<body>
+
+<div id="topbar">
+    <strong>OMO</strong>
+    <span>Level: <span id="level">1</span>/45</span>
+    <span>OMOBucks: <span id="coins">0</span></span>
+    <span>Challenge: Collect all gems and reach the blue portal.</span>
+</div>
+
+<div id="shop">
+    <h3>Shop</h3>
+
+    <button onclick="buy('Hat',50)">
+        Hat - 50
+    </button>
+
+    <button onclick="buy('Speed',100)">
+        Speed - 100
+    </button>
+
+    <button onclick="buy('Submersible',200)">
+        Submersible - 200
+    </button>
+
+    <hr>
+
+    <div id="inventory">
+        Inventory:
+    </div>
+</div>
+
+<canvas id="game" width="1000" height="550"></canvas>
+
+<script>
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+let level=1;
+let maxLevels=45;
+
+let coins=0;
+
+let inventory=[];
+
+let speed=4;
+
+const player={
+    x:60,
+    y:60,
+    size:30
+};
+
+const keys={};
+
+let portal;
+let gems=[];
+let npcs=[];
+
+document.addEventListener("keydown",(e)=>{
+    keys[e.key]=true;
+});
+
+document.addEventListener("keyup",(e)=>{
+    keys[e.key]=false;
+});
+
+function createLevel(){
+
+    portal={
+        x:900,
+        y:450,
+        w:50,
+        h:50
+    };
+
+    gems=[];
+    npcs=[];
+
+    let gemCount=Math.min(level+3,20);
+
+    for(let i=0;i<gemCount;i++){
+        gems.push({
+            x:80+Math.random()*800,
+            y:80+Math.random()*350
+        });
+    }
+
+    for(let i=0;i<6;i++){
+        npcs.push({
+            x:Math.random()*900,
+            y:Math.random()*500,
+            dx:(Math.random()*4)-2,
+            dy:(Math.random()*4)-2
+        });
+    }
+
+    document.getElementById("level").innerText=level;
+}
+
+function buy(item,cost){
+
+    if(coins<cost){
+        alert("Not enough OMOBucks!");
+        return;
+    }
+
+    coins-=cost;
+
+    inventory.push(item);
+
+    if(item==="Speed"){
+        speed=6;
+    }
+
+    updateUI();
+}
+
+function updateUI(){
+
+    document.getElementById("coins").innerText=coins;
+
+    document.getElementById("inventory").innerHTML=
+        "Inventory:<br>"+inventory.join("<br>");
+}
+
+function updatePlayer(){
+
+    if(keys["ArrowLeft"]) player.x-=speed;
+    if(keys["ArrowRight"]) player.x+=speed;
+    if(keys["ArrowUp"]) player.y-=speed;
+    if(keys["ArrowDown"]) player.y+=speed;
+
+    player.x=Math.max(0,Math.min(canvas.width-player.size,player.x));
+    player.y=Math.max(0,Math.min(canvas.height-player.size,player.y));
+}
+
+function updateNPCs(){
+
+    npcs.forEach(n=>{
+
+        n.x+=n.dx;
+        n.y+=n.dy;
+
+        if(n.x<0 || n.x>canvas.width-20)
+            n.dx*=-1;
+
+        if(n.y<0 || n.y>canvas.height-20)
+            n.dy*=-1;
+    });
+}
+
+function collectGems(){
+
+    gems=gems.filter(g=>{
+
+        let dx=player.x-g.x;
+        let dy=player.y-g.y;
+
+        let distance=Math.sqrt(dx*dx+dy*dy);
+
+        if(distance<25){
+
+            coins+=10;
+
+            updateUI();
+
+            return false;
+        }
+
+        return true;
+    });
+}
+
+function portalCheck(){
+
+    if(gems.length>0) return;
+
+    if(
+        player.x > portal.x &&
+        player.y > portal.y
+    ){
+
+        if(level<maxLevels){
+
+            level++;
+
+            player.x=60;
+            player.y=60;
+
+            createLevel();
+
+        }else{
+
+            alert("You completed all 45 OMO levels!");
+        }
+    }
+}
+
+function drawPlayer(){
+
+    ctx.fillStyle=
+        inventory.includes("Hat")
+        ? "orange"
+        : "white";
+
+    ctx.fillRect(
+        player.x,
+        player.y,
+        player.size,
+        player.size
+    );
+}
+
+function drawNPCs(){
+
+    ctx.fillStyle="red";
+
+    npcs.forEach(n=>{
+
+        ctx.fillRect(
+            n.x,
+            n.y,
+            20,
+            20
+        );
+    });
+}
+
+function drawGems(){
+
+    ctx.fillStyle="gold";
+
+    gems.forEach(g=>{
+
+        ctx.beginPath();
+
+        ctx.arc(
+            g.x,
+            g.y,
+            8,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+    });
+}
+
+function drawPortal(){
+
+    ctx.fillStyle="blue";
+
+    ctx.fillRect(
+        portal.x,
+        portal.y,
+        portal.w,
+        portal.h
+    );
+}
+
+function drawText(){
+
+    ctx.fillStyle="black";
+    ctx.font="20px Arial";
+
+    ctx.fillText(
+        "Gems Left: "+gems.length,
+        20,
+        30
+    );
+}
+
+function draw(){
+
+    ctx.clearRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    drawPortal();
+    drawGems();
+    drawNPCs();
+    drawPlayer();
+    drawText();
+}
+
+function gameLoop(){
+
+    updatePlayer();
+    updateNPCs();
+    collectGems();
+    portalCheck();
+
+    draw();
+
+    requestAnimationFrame(gameLoop);
+}
+
+createLevel();
+updateUI();
+gameLoop();
+
+</script>
+
+</body>
+</html>
