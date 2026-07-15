@@ -1,359 +1,294 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>OMO</title>
+<meta charset="utf-8">
+<title>OMO DRIVE</title>
 
 <style>
 body{
     margin:0;
-    background:#111;
-    color:white;
-    font-family:Arial,sans-serif;
+    background:black;
+    overflow:hidden;
+    font-family:Arial;
 }
 
-#topbar{
-    background:#202020;
-    padding:10px;
-    display:flex;
-    gap:20px;
-    align-items:center;
+#hud{
+    position:absolute;
+    top:10px;
+    left:10px;
+    color:white;
+    background:rgba(0,0,0,0.6);
+    padding:15px;
+    border-radius:10px;
+    z-index:10;
 }
 
 canvas{
     display:block;
-    margin:auto;
-    background:linear-gradient(#5ee7ff,#49b84c);
-    border:3px solid black;
-}
-
-#shop{
-    position:absolute;
-    right:10px;
-    top:60px;
-    background:#222;
-    padding:10px;
-    border-radius:10px;
-    width:180px;
-}
-
-button{
-    width:100%;
-    margin-top:5px;
-    padding:8px;
-    cursor:pointer;
-}
-
-h3{
-    margin-top:0;
 }
 </style>
 </head>
 <body>
 
-<div id="topbar">
-    <strong>OMO</strong>
-    <span>Level: <span id="level">1</span>/45</span>
-    <span>OMOBucks: <span id="coins">0</span></span>
-    <span>Challenge: Collect all gems and reach the blue portal.</span>
+<div id="hud">
+    <h2>OMO DRIVE</h2>
+
+    Speed:
+    <span id="speed">0</span>
+    MPH
+    <br>
+
+    RPM:
+    <span id="rpm">800</span>
+    <br>
+
+    Distance:
+    <span id="distance">0</span>
+    mi
+    <br>
+
+    Fuel:
+    <span id="fuel">100</span>%
 </div>
 
-<div id="shop">
-    <h3>Shop</h3>
-
-    <button onclick="buy('Hat',50)">
-        Hat - 50
-    </button>
-
-    <button onclick="buy('Speed',100)">
-        Speed - 100
-    </button>
-
-    <button onclick="buy('Submersible',200)">
-        Submersible - 200
-    </button>
-
-    <hr>
-
-    <div id="inventory">
-        Inventory:
-    </div>
-</div>
-
-<canvas id="game" width="1000" height="550"></canvas>
+<canvas id="game"></canvas>
 
 <script>
 
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
 
-let level=1;
-let maxLevels=45;
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
 
-let coins=0;
+let speed=0;
+let maxSpeed=180;
+let distance=0;
+let fuel=100;
 
-let inventory=[];
+let roadOffset=0;
 
-let speed=4;
-
-const player={
-    x:60,
-    y:60,
-    size:30
+let car={
+    x:canvas.width/2,
+    y:canvas.height-180,
+    w:70,
+    h:120
 };
 
-const keys={};
+let keys={};
 
-let portal;
-let gems=[];
-let npcs=[];
+document.addEventListener("keydown",e=>keys[e.key]=true);
+document.addEventListener("keyup",e=>keys[e.key]=false);
 
-document.addEventListener("keydown",(e)=>{
-    keys[e.key]=true;
-});
+function update(){
 
-document.addEventListener("keyup",(e)=>{
-    keys[e.key]=false;
-});
+    if(keys["ArrowUp"] || keys["w"]){
 
-function createLevel(){
-
-    portal={
-        x:900,
-        y:450,
-        w:50,
-        h:50
-    };
-
-    gems=[];
-    npcs=[];
-
-    let gemCount=Math.min(level+3,20);
-
-    for(let i=0;i<gemCount;i++){
-        gems.push({
-            x:80+Math.random()*800,
-            y:80+Math.random()*350
-        });
+        speed+=0.5;
     }
 
-    for(let i=0;i<6;i++){
-        npcs.push({
-            x:Math.random()*900,
-            y:Math.random()*500,
-            dx:(Math.random()*4)-2,
-            dy:(Math.random()*4)-2
-        });
+    if(keys["ArrowDown"] || keys["s"]){
+
+        speed-=1;
     }
 
-    document.getElementById("level").innerText=level;
-}
+    if(keys["ArrowLeft"] || keys["a"]){
 
-function buy(item,cost){
-
-    if(coins<cost){
-        alert("Not enough OMOBucks!");
-        return;
+        car.x-=6;
     }
 
-    coins-=cost;
+    if(keys["ArrowRight"] || keys["d"]){
 
-    inventory.push(item);
-
-    if(item==="Speed"){
-        speed=6;
+        car.x+=6;
     }
 
-    updateUI();
-}
+    speed=Math.max(0,Math.min(maxSpeed,speed));
 
-function updateUI(){
+    roadOffset += speed*0.4;
 
-    document.getElementById("coins").innerText=coins;
+    distance += speed*0.0004;
 
-    document.getElementById("inventory").innerHTML=
-        "Inventory:<br>"+inventory.join("<br>");
-}
+    fuel -= speed*0.00003;
 
-function updatePlayer(){
-
-    if(keys["ArrowLeft"]) player.x-=speed;
-    if(keys["ArrowRight"]) player.x+=speed;
-    if(keys["ArrowUp"]) player.y-=speed;
-    if(keys["ArrowDown"]) player.y+=speed;
-
-    player.x=Math.max(0,Math.min(canvas.width-player.size,player.x));
-    player.y=Math.max(0,Math.min(canvas.height-player.size,player.y));
-}
-
-function updateNPCs(){
-
-    npcs.forEach(n=>{
-
-        n.x+=n.dx;
-        n.y+=n.dy;
-
-        if(n.x<0 || n.x>canvas.width-20)
-            n.dx*=-1;
-
-        if(n.y<0 || n.y>canvas.height-20)
-            n.dy*=-1;
-    });
-}
-
-function collectGems(){
-
-    gems=gems.filter(g=>{
-
-        let dx=player.x-g.x;
-        let dy=player.y-g.y;
-
-        let distance=Math.sqrt(dx*dx+dy*dy);
-
-        if(distance<25){
-
-            coins+=10;
-
-            updateUI();
-
-            return false;
-        }
-
-        return true;
-    });
-}
-
-function portalCheck(){
-
-    if(gems.length>0) return;
-
-    if(
-        player.x > portal.x &&
-        player.y > portal.y
-    ){
-
-        if(level<maxLevels){
-
-            level++;
-
-            player.x=60;
-            player.y=60;
-
-            createLevel();
-
-        }else{
-
-            alert("You completed all 45 OMO levels!");
-        }
+    if(fuel<0){
+        fuel=0;
+        speed=0;
     }
+
+    document.getElementById("speed").innerText=
+        Math.floor(speed);
+
+    document.getElementById("rpm").innerText=
+        Math.floor(800 + speed*35);
+
+    document.getElementById("distance").innerText=
+        distance.toFixed(2);
+
+    document.getElementById("fuel").innerText=
+        fuel.toFixed(1);
 }
 
-function drawPlayer(){
+function drawSky(){
 
-    ctx.fillStyle=
-        inventory.includes("Hat")
-        ? "orange"
-        : "white";
+    let g=ctx.createLinearGradient(0,0,0,canvas.height);
 
-    ctx.fillRect(
-        player.x,
-        player.y,
-        player.size,
-        player.size
-    );
+    g.addColorStop(0,"#3ea8ff");
+    g.addColorStop(1,"#8ed0ff");
+
+    ctx.fillStyle=g;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 }
 
-function drawNPCs(){
+function drawScenery(){
 
-    ctx.fillStyle="red";
+    ctx.fillStyle="#3cb043";
 
-    npcs.forEach(n=>{
+    ctx.fillRect(0,canvas.height-250,
+        canvas.width,250);
+
+    for(let i=0;i<25;i++){
+
+        let y=((i*200)+(roadOffset%200));
+
+        ctx.fillStyle="#6b4f2a";
 
         ctx.fillRect(
-            n.x,
-            n.y,
-            20,
-            20
+            120,
+            canvas.height-y,
+            10,
+            60
         );
-    });
-}
 
-function drawGems(){
-
-    ctx.fillStyle="gold";
-
-    gems.forEach(g=>{
+        ctx.fillRect(
+            canvas.width-130,
+            canvas.height-y,
+            10,
+            60
+        );
 
         ctx.beginPath();
 
+        ctx.fillStyle="green";
+
         ctx.arc(
-            g.x,
-            g.y,
-            8,
+            125,
+            canvas.height-y,
+            30,
             0,
             Math.PI*2
         );
 
         ctx.fill();
-    });
+
+        ctx.beginPath();
+
+        ctx.arc(
+            canvas.width-125,
+            canvas.height-y,
+            30,
+            0,
+            Math.PI*2
+        );
+
+        ctx.fill();
+    }
 }
 
-function drawPortal(){
+function drawRoad(){
 
-    ctx.fillStyle="blue";
+    let roadWidth=400;
+
+    let roadX=(canvas.width-roadWidth)/2;
+
+    ctx.fillStyle="#444";
 
     ctx.fillRect(
-        portal.x,
-        portal.y,
-        portal.w,
-        portal.h
+        roadX,
+        0,
+        roadWidth,
+        canvas.height
     );
+
+    ctx.strokeStyle="white";
+    ctx.lineWidth=6;
+
+    for(let y=-200;y<canvas.height+200;y+=80){
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            canvas.width/2,
+            y+(roadOffset%80)
+        );
+
+        ctx.lineTo(
+            canvas.width/2,
+            y+40+(roadOffset%80)
+        );
+
+        ctx.stroke();
+    }
 }
 
-function drawText(){
+function drawCar(){
+
+    let x=car.x;
+    let y=car.y;
+
+    ctx.fillStyle="#ff2222";
+
+    ctx.fillRect(
+        x-car.w/2,
+        y-car.h/2,
+        car.w,
+        car.h
+    );
+
+    ctx.fillStyle="#87ceeb";
+
+    ctx.fillRect(
+        x-25,
+        y-40,
+        50,
+        35
+    );
 
     ctx.fillStyle="black";
-    ctx.font="20px Arial";
 
-    ctx.fillText(
-        "Gems Left: "+gems.length,
-        20,
-        30
-    );
+    ctx.beginPath();
+    ctx.arc(x-30,y-45,10,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x+30,y-45,10,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x-30,y+45,10,0,Math.PI*2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(x+30,y+45,10,0,Math.PI*2);
+    ctx.fill();
 }
 
 function draw(){
 
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    drawPortal();
-    drawGems();
-    drawNPCs();
-    drawPlayer();
-    drawText();
+    drawSky();
+    drawScenery();
+    drawRoad();
+    drawCar();
 }
 
-function gameLoop(){
+function loop(){
 
-    updatePlayer();
-    updateNPCs();
-    collectGems();
-    portalCheck();
-
+    update();
     draw();
 
-    requestAnimationFrame(gameLoop);
+    requestAnimationFrame(loop);
 }
 
-createLevel();
-updateUI();
-gameLoop();
+loop();
 
 </script>
 
